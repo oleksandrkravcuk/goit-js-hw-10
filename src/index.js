@@ -1,92 +1,63 @@
-import { fetchBreeds, fetchCatByBreed } from './cat-api';
-import SlimSelect from 'slim-select';
+import { fetchBreeds, fetchCatByBreed } from "./cat-api";
+import './css/style.css';
+import { Notify } from 'notiflix/build/notiflix-notify-aio';
+import SlimSelect from 'slim-select'
 import 'slim-select/dist/slimselect.css';
-import Notiflix from 'notiflix';
-// import { Notify } from 'notiflix/build/notiflix-notify-aio';
 
-let breedId = '';
-
-const elements = {
-    select: document.querySelector('.breed-select'),
-    info: document.querySelector('.cat-info'),
+const ref = {
+    selector: document.querySelector('.breed-select'),
+    divCatInfo: document.querySelector('.cat-info'),
     loader: document.querySelector('.loader'),
     error: document.querySelector('.error'),
 };
+const { selector, divCatInfo, loader, error } = ref;
 
-elements.loader.classList.add('is-hidden');
-elements.error.classList.add('is-hidden');
-elements.info.classList.add('is-hidden');
+loader.classList.replace('loader', 'is-hidden');
+error.classList.add('is-hidden');
+divCatInfo.classList.add('is-hidden');
 
-function fetchList() {
-    fetchBreeds()
-        .then(breeds => {
-        const breedMarkup = breeds
-            .map(({ id, name }) => {
-            return `<option value="${id}">${name}</option>`;
-            })
-            .join('');
-        elements.select.insertAdjacentHTML('beforeend', breedMarkup);
-
-        new SlimSelect({
-            select: elements.select,
-        });
+let arrBreedsId = [];
+fetchBreeds()
+.then(data => {
+    data.forEach(element => {
+        arrBreedsId.push({text: element.name, value: element.id});
+    });
+    new SlimSelect({
+        select: selector,
+        data: arrBreedsId
+    });
     })
-    .catch(onError);
-}
+.catch(onFetchError);
 
-fetchList();
-elements.select.addEventListener('change', onSelect);
+selector.addEventListener('change', onSelectBreed);
 
-function onSelect(evt) {
-    evt.preventDefault();
-    onLoad();
-    breedId = evt.target.value;
-    showCat(breedId);
-}
+function onSelectBreed(event) {
+    loader.classList.replace('is-hidden', 'loader');
+    selector.classList.add('is-hidden');
+    divCatInfo.classList.add('is-hidden');
 
-function showCat(breedId) {
-    let selectedBreed;
-    fetchBreeds()
+    const breedId = event.currentTarget.value;
+    fetchCatByBreed(breedId)
     .then(data => {
-        selectedBreed = data.find(breed => breed.id === breedId);
-        return fetchCatByBreed(breedId);
+        loader.classList.replace('loader', 'is-hidden');
+        selector.classList.remove('is-hidden');
+        const { url, breeds } = data[0];
+        
+        divCatInfo.innerHTML = `<div class="box-img"><img src="${url}" alt="${breeds[0].name}" width="400"/></div><div class="box"><h1>${breeds[0].name}</h1><p>${breeds[0].description}</p><p><b>Temperament:</b> ${breeds[0].temperament}</p></div>`
+        divCatInfo.classList.remove('is-hidden');
     })
-    .then(catInfo => {
-        const catData = catInfo[0];
+    .catch(onFetchError);
+};
 
-        const description = selectedBreed.description;
-        const temperament = selectedBreed.temperament;
-        const name = selectedBreed.name;
-        const { url } = catData;
+function onFetchError(error) {
+    selector.classList.remove('is-hidden');
+    loader.classList.replace('loader', 'is-hidden');
 
-        const oneCatMarkup = `
-            <div class="cat">
-            <div class="cat__img">
-            <img src="${url}" alt='cat' width='500'/>
-            </div class="cat__info-txt">
-            <h1 class="cat__info-title">${name}</h1>
-            <p class="cat__info-description">${description}</p>
-            <p class="cat__info-temperament"><span>Temperament:</span> ${temperament}</p>
-            </div></div>`;
-        elements.info.innerHTML = oneCatMarkup;
-        onAppear();
-    })
-    .catch(onError);
-}
-
-function onError(error) {
-    Notiflix.Notify.warning(
-    'Oops! Something went wrong! Try reloading the page!'
-    );
-    console.log(error);
-}
-
-function onAppear() {
-    elements.loader.classList.add('is-hidden');
-    elements.info.classList.remove('is-hidden');
-}
-
-function onLoad() {
-    elements.loader.classList.remove('is-hidden');
-    elements.info.classList.add('is-hidden');
-}
+    Notify.failure('Oops! Something went wrong! Try reloading the page or select another cat breed!', {
+        position: 'center-center',
+        timeout: 5000,
+        width: '400px',
+        fontSize: '24px'
+    });
+};
+   
